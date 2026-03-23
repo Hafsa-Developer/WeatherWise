@@ -5,7 +5,7 @@ An interactive web app to check real-time weather forecasts, see dynamic visuals
 ---
 
 ## 🔗 Live Demo
-[View Live Project](https://your-vercel-link.vercel.app)
+[View Live Project](https://weather-wise-travel.vercel.app/)
 
 ---
 
