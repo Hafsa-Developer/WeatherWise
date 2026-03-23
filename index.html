@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <meta name="description"
+        content="WeatherWise Travel Planner by Hafsa Faisal - Real-time weather forecasts and travel suggestions">
+    <title>WeatherWise | by Hafsa Faisal</title>
+    <!-- Google Fonts + Tailwind + Font Awesome -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,600;14..32,700;14..32,800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js CDN for weekly forecast chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            transition: background 0.5s ease;
+            overflow-x: hidden;
+        }
+
+        
+        .weather-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.6s ease-in-out;
+            background-color: #1a1a2e;
+        }
+
+        .overlay-dark {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: -1;
+            backdrop-filter: blur(3px);
+        }
+
+        /* glassmorphism card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            border-radius: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .glass-card-solid {
+            background: rgba(30, 30, 40, 0.65);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .search-input {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            background: rgba(255, 255, 255, 0.35);
+            border-color: white;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.4);
+        }
+
+        .fav-btn-active {
+            color: #facc15;
+            text-shadow: 0 0 4px gold;
+        }
+
+        .temp-big {
+            font-size: 3.8rem;
+            font-weight: 700;
+        }
+
+        @media (max-width: 640px) {
+            .temp-big {
+                font-size: 2.5rem;
+            }
+        }
+
+        .suggestion-icon {
+            transition: transform 0.2s;
+        }
+
+        .suggestion-card:hover .suggestion-icon {
+            transform: scale(1.1);
+        }
+
+        .chart-container {
+            max-height: 220px;
+            width: 100%;
+        }
+
+        /* scrollbar nice */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ffd966;
+            border-radius: 10px;
+        }
+
+        /* Loading animation */
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading-pulse {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @media (max-width: 768px) {
+            .glass-card {
+                border-radius: 1.5rem;
+            }
+
+            .suggestion-card {
+                min-width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .temp-big {
+                font-size: 2rem;
+            }
+        }
+
+       
+        button,
+        .fav-chip {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        
+        .transition-all {
+            transition: all 0.3s ease;
+        }
+
+        
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+
+<body class="text-white">
+
+   
+    <div id="dynamicBg" class="weather-bg"></div>
+    <div class="overlay-dark"></div>
+
+    <div class="container mx-auto px-4 sm:px-6 py-4 sm:py-6 md:py-10 max-w-7xl relative z-10">
+        <!-- Header -->
+        <div class="flex flex-wrap justify-between items-center mb-6 md:mb-8 gap-3">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-cloud-sun text-3xl sm:text-4xl text-yellow-300 drop-shadow"></i>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight drop-shadow">WeatherWise <span
+                            class="text-yellow-200">Travel</span></h1>
+                    <p class="text-xs sm:text-sm text-white/80 mt-1">by <span
+                            class="font-semibold text-yellow-200">Hafsa Faisal</span> ✨</p>
+                </div>
+            </div>
+            <div class="flex gap-2 sm:gap-3 items-center">
+                <div id="localTimeDisplay"
+                    class="bg-black/30 backdrop-blur-sm px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-mono">
+                    <i class="far fa-clock mr-1"></i> <span id="localTimeText">--:-- --</span>
+                </div>
+                <button id="refreshFavBtn"
+                    class="bg-white/20 hover:bg-white/30 backdrop-blur rounded-full p-2 transition-all" title="Refresh">
+                    <i class="fas fa-sync-alt text-sm sm:text-base"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Search + fav cities row -->
+        <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <div class="flex-1 flex gap-2">
+                <input type="text" id="cityInput" placeholder="Search city... e.g., Karachi, London, Tokyo"
+                    class="search-input flex-1 px-4 sm:px-5 py-3 rounded-full text-white placeholder:text-white/70 text-base sm:text-lg font-medium">
+                <button id="searchBtn"
+                    class="bg-amber-500 hover:bg-amber-600 transition px-5 sm:px-6 rounded-full font-semibold shadow-lg flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-search text-sm sm:text-base"></i>
+                    <span class="hidden xs:inline">Search</span>
+                </button>
+            </div>
+            <div class="flex gap-2 flex-wrap items-center">
+                <span class="text-xs sm:text-sm font-medium bg-black/30 px-2 sm:px-3 py-1 rounded-full">
+                    <i class="fas fa-star text-yellow-300 mr-1 text-xs"></i>Fav:
+                </span>
+                <div id="favChipsContainer" class="flex gap-2 flex-wrap flex-1"></div>
+                <button id="clearFavBtn"
+                    class="text-xs bg-red-500/40 hover:bg-red-600/60 rounded-full px-2 sm:px-3 py-1 transition whitespace-nowrap">Clear</button>
+            </div>
+        </div>
+
+        <!-- Main weather & travel grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <!-- LEFT COL: Current Weather + Local -->
+            <div class="lg:col-span-2 space-y-4 sm:space-y-5">
+                <div class="glass-card p-4 sm:p-5 md:p-7 rounded-2xl sm:rounded-3xl">
+                    <div class="flex justify-between items-start flex-wrap gap-3">
+                        <div class="flex-1">
+                            <h2 id="cityName" class="text-2xl sm:text-3xl font-bold break-words">---</h2>
+                            <p class="text-white/80 text-xs sm:text-sm mt-1"><i class="fas fa-map-marker-alt mr-1"></i>
+                                <span id="countryInfo"></span></p>
+                            <div class="flex items-center gap-2 sm:gap-3 mt-2 sm:mt-3 flex-wrap">
+                                <span id="weatherIcon" class="text-4xl sm:text-5xl"><i
+                                        class="fas fa-question-circle"></i></span>
+                                <div>
+                                    <span id="tempC" class="temp-big font-bold">--</span><span
+                                        class="text-xl sm:text-2xl">°C</span>
+                                    <p id="weatherDesc" class="capitalize text-white/90 text-sm sm:text-base">--</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="favStarBtn"
+                            class="text-2xl sm:text-3xl transition hover:scale-110 focus:outline-none p-2">
+                            <i class="far fa-star" id="favStarIcon"></i>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4 sm:mt-6 text-center">
+                        <div class="bg-black/20 rounded-xl p-2 sm:p-3">
+                            <i class="fas fa-tint text-sm sm:text-base"></i>
+                            <p class="text-xs sm:text-sm mt-1"><span id="humidity">--</span>%</p>
+                            <p class="text-[10px] sm:text-xs opacity-80">Humidity</p>
+                        </div>
+                        <div class="bg-black/20 rounded-xl p-2 sm:p-3">
+                            <i class="fas fa-wind text-sm sm:text-base"></i>
+                            <p class="text-xs sm:text-sm mt-1"><span id="windSpeed">--</span> m/s</p>
+                            <p class="text-[10px] sm:text-xs opacity-80">Wind</p>
+                        </div>
+                        <div class="bg-black/20 rounded-xl p-2 sm:p-3">
+                            <i class="fas fa-compress-alt text-sm sm:text-base"></i>
+                            <p class="text-xs sm:text-sm mt-1"><span id="pressure">--</span> hPa</p>
+                            <p class="text-[10px] sm:text-xs opacity-80">Pressure</p>
+                        </div>
+                        <div class="bg-black/20 rounded-xl p-2 sm:p-3">
+                            <i class="fas fa-thermometer-half text-sm sm:text-base"></i>
+                            <p class="text-xs sm:text-sm mt-1"><span id="feelsLike">--</span>°</p>
+                            <p class="text-[10px] sm:text-xs opacity-80">Feels like</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Travel suggestions based on weather -->
+                <div class="glass-card p-4 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl">
+                    <h3 class="text-lg sm:text-xl font-semibold flex items-center gap-2 mb-3">
+                        <i class="fas fa-umbrella-beach text-amber-300"></i> Traveler's Compass
+                    </h3>
+                    <div id="suggestionsBox" class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 items-stretch">
+                        <div class="animate-pulse text-center py-4">✨ Loading suggestions...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COL: Weekly forecast chart + extras -->
+            <div class="space-y-4 sm:space-y-5">
+                <div class="glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl">
+                    <h3 class="text-base sm:text-lg font-bold flex items-center gap-2 mb-3">
+                        <i class="fas fa-chart-line text-sky-300"></i> 5-Day Forecast
+                    </h3>
+                    <div class="chart-container w-full">
+                        <canvas id="forecastChart" style="max-height: 200px; width: 100%"></canvas>
+                    </div>
+                    <div class="text-[10px] sm:text-xs text-white/70 text-center mt-2">Temperature trend (°C) • next
+                        days</div>
+                </div>
+
+                
+                <div
+                    class="glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl text-center text-xs sm:text-sm bg-white/10 backdrop-blur">
+                    <i class="fas fa-lightbulb text-yellow-300 mr-1"></i>
+                    <span class="text-xs sm:text-sm">Pro tip: Save favorite cities for instant weather & travel
+                        ideas!</span>
+                </div>
+
+                <!-- Credit badge -->
+                <div class="text-center text-white/50 text-[10px] sm:text-xs backdrop-blur-sm py-2">
+                    <i class="fas fa-heart text-red-300 text-xs"></i> Created with passion by Hafsa Faisal
+                </div>
+            </div>
+        </div>
+
+        <!-- footer note -->
+        <div class="mt-6 sm:mt-8 text-center text-white/60 text-[10px] sm:text-xs backdrop-blur-sm">
+            <i class="fas fa-cloud-sun-rain"></i> Live weather data via OpenWeatherMap • Plan your dream journey
+        </div>
+    </div>
+
+    <script>
+        // ------------------- CONFIG -------------------
+        const API_KEY_WEATHER = 'c6954842f8bc2b167171479bb95414f8';   
+
+        // DOM elements
+        const cityInput = document.getElementById('cityInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const cityNameEl = document.getElementById('cityName');
+        const countryInfo = document.getElementById('countryInfo');
+        const weatherIcon = document.getElementById('weatherIcon');
+        const tempC = document.getElementById('tempC');
+        const weatherDesc = document.getElementById('weatherDesc');
+        const humidityEl = document.getElementById('humidity');
+        const windSpeed = document.getElementById('windSpeed');
+        const pressureEl = document.getElementById('pressure');
+        const feelsLike = document.getElementById('feelsLike');
+        const suggestionsBox = document.getElementById('suggestionsBox');
+        const favStarBtn = document.getElementById('favStarBtn');
+        const favStarIcon = document.getElementById('favStarIcon');
+        const favChipsContainer = document.getElementById('favChipsContainer');
+        const clearFavBtn = document.getElementById('clearFavBtn');
+        const refreshFavBtn = document.getElementById('refreshFavBtn');
+        const localTimeTextSpan = document.getElementById('localTimeText');
+
+        let forecastChart = null;
+        let currentWeatherData = null;
+        let currentCity = "Karachi";
+        let currentTimezone = 0;
+        let timeInterval = null;
+
+        // ---------- FAVORITES STORAGE ----------
+        let favorites = JSON.parse(localStorage.getItem('weather_fav_cities')) || [];
+
+        function saveFavorites() {
+            localStorage.setItem('weather_fav_cities', JSON.stringify(favorites));
+            renderFavChips();
+            updateStarIcon();
+        }
+
+        function updateStarIcon() {
+            if (currentCity && favorites.includes(currentCity.toLowerCase())) {
+                favStarIcon.className = "fas fa-star text-yellow-300";
+                favStarBtn.classList.add("fav-btn-active");
+            } else {
+                favStarIcon.className = "far fa-star";
+                favStarBtn.classList.remove("fav-btn-active");
+            }
+        }
+
+        function toggleFavorite() {
+            if (!currentCity) return;
+            const cityKey = currentCity.toLowerCase();
+            if (favorites.includes(cityKey)) {
+                favorites = favorites.filter(c => c !== cityKey);
+            } else {
+                if (favorites.length >= 8) {
+                    alert("You can save up to 8 favorite cities.");
+                    return;
+                }
+                favorites.push(cityKey);
+            }
+            saveFavorites();
+        }
+
+        function renderFavChips() {
+            favChipsContainer.innerHTML = '';
+            favorites.slice(0, 8).forEach(city => {
+                const chip = document.createElement('button');
+                chip.className = "bg-white/20 hover:bg-white/30 backdrop-blur rounded-full px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium capitalize flex items-center gap-1 transition fav-chip";
+                chip.innerHTML = `<i class="fas fa-star text-yellow-200 text-[10px] sm:text-xs"></i> ${city.length > 12 ? city.substring(0, 10) + '...' : city}`;
+                chip.addEventListener('click', () => {
+                    cityInput.value = city;
+                    fetchWeatherAndForecast(city);
+                });
+                favChipsContainer.appendChild(chip);
+            });
+            if (favorites.length === 0) {
+                const emptyHint = document.createElement('span');
+                emptyHint.className = "text-white/50 text-xs sm:text-sm";
+                emptyHint.innerText = "⭐ Click star to add";
+                favChipsContainer.appendChild(emptyHint);
+            }
+        }
+
+        // ---------- DYNAMIC BACKGROUND with error handling ----------
+        const bgMap = {
+            Clear: "url('https://images.unsplash.com/photo-1601297183305-6df142704ea5?w=1600&q=80')",
+            Clouds: "url('https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=1600&q=80')",
+            Rain: "url('https://images.unsplash.com/photo-1519692933481-e162a4cf6721?w=1600&q=80')",
+            Drizzle: "url('https://images.unsplash.com/photo-1546556071-78f07dae9dcd?w=1600&q=80')",
+            Thunderstorm: "url('https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?w=1600&q=80')",
+            Snow: "url('https://images.unsplash.com/photo-1517299321609-52687d1bc55a?w=1600&q=80')",
+            Mist: "url('https://images.unsplash.com/photo-1546389820-bf15631c15b7?w=1600&q=80')",
+            Fog: "url('https://images.unsplash.com/photo-1487621167305-5d248087c724?w=1600&q=80')",
+            Haze: "url('https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=1600&q=80')",
+            default: "url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1600&q=80')"
+        };
+
+        function updateBackground(weatherMain) {
+            try {
+                const bgUrl = bgMap[weatherMain] || bgMap.default;
+                const bgElement = document.getElementById('dynamicBg');
+                if (bgElement) {
+                    bgElement.style.backgroundImage = bgUrl;
+                    bgElement.style.backgroundSize = "cover";
+                    bgElement.style.backgroundPosition = "center";
+                }
+            } catch (error) {
+                console.log("Background update error:", error);
+            }
+        }
+
+        // ---------- TRAVEL SUGGESTIONS ----------
+        function getTravelSuggestions(weatherMain, temp) {
+            const lowerMain = weatherMain.toLowerCase();
+            if (lowerMain.includes('clear') || lowerMain.includes('sun')) {
+                return [
+                    { icon: "🏖️", text: "Beach day! Perfect sunny weather for swimming & sunbathing." },
+                    { icon: "🥾", text: "Hiking or outdoor picnic — enjoy the clear skies." },
+                    { icon: "🍦", text: "Grab an ice cream and explore city parks." }
+                ];
+            } else if (lowerMain.includes('rain') || lowerMain.includes('drizzle')) {
+                return [
+                    { icon: "🏛️", text: "Visit museums, galleries or cozy cafes indoors." },
+                    { icon: "🎬", text: "Catch a movie — rainy day special!" },
+                    { icon: "☕", text: "Relax at a local coffee shop with a warm drink." }
+                ];
+            } else if (lowerMain.includes('snow')) {
+                return [
+                    { icon: "⛷️", text: "Skiing or snowboarding if nearby mountains." },
+                    { icon: "🔥", text: "Enjoy hot chocolate by a fireplace." },
+                    { icon: "❄️", text: "Build a snowman & winter photography." }
+                ];
+            } else if (lowerMain.includes('cloud')) {
+                return [
+                    { icon: "🚶", text: "Perfect for sightseeing without harsh sun." },
+                    { icon: "📸", text: "Golden hour walks & city exploration." },
+                    { icon: "🌿", text: "Botanical gardens or outdoor markets." }
+                ];
+            } else if (lowerMain.includes('thunder')) {
+                return [
+                    { icon: "🏠", text: "Stay safe indoors — enjoy local cuisine." },
+                    { icon: "📖", text: "Read a book or visit an indoor attraction." },
+                    { icon: "🎭", text: "Theatre or live music show." }
+                ];
+            } else {
+                return [
+                    { icon: "🧭", text: "Explore local culture & hidden gems." },
+                    { icon: "🍽️", text: "Try authentic restaurants nearby." },
+                    { icon: "🚲", text: "Rent a bike if weather permits." }
+                ];
+            }
+        }
+
+        function renderSuggestions(weatherMain, temp) {
+            const suggestions = getTravelSuggestions(weatherMain, temp);
+            suggestionsBox.innerHTML = suggestions.map(s => `
+        <div class="suggestion-card bg-black/20 backdrop-blur-sm rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3 flex-1">
+          <span class="suggestion-icon text-2xl sm:text-3xl">${s.icon}</span>
+          <span class="text-xs sm:text-sm font-medium leading-tight">${s.text}</span>
+        </div>
+      `).join('');
+        }
+
+        // ---------- IMPROVED LOCAL TIME DISPLAY using timezone offset ----------
+        function updateLocalTimeDisplay() {
+            if (!currentTimezone && currentTimezone !== 0) {
+                localTimeTextSpan.innerText = "--:-- --";
+                return;
+            }
+
+            const updateTime = () => {
+                try {
+                    const now = new Date();
+                    const utcTime = now.getTime();
+                    const localTime = new Date(utcTime + (currentTimezone * 1000));
+
+                    let hours = localTime.getUTCHours();
+                    const minutes = localTime.getUTCMinutes();
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12;
+                    hours = hours ? hours : 12;
+                    const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+                    localTimeTextSpan.innerText = `${hours}:${minutesStr} ${ampm}`;
+                } catch (error) {
+                    console.log("Time update error:", error);
+                    localTimeTextSpan.innerText = "--:-- --";
+                }
+            };
+
+            updateTime();
+            if (timeInterval) clearInterval(timeInterval);
+            timeInterval = setInterval(updateTime, 1000);
+        }
+
+        // ---------- FETCH WEATHER & FORECAST with better error handling ----------
+        async function fetchWeatherAndForecast(city) {
+            if (!city.trim()) return;
+
+            cityNameEl.innerHTML = '<div class="loading-pulse text-sm sm:text-base">Loading...</div>';
+            suggestionsBox.innerHTML = '<div class="animate-pulse text-center py-4">✨ Fetching weather data...</div>';
+
+            try {
+                const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY_WEATHER}&units=metric`;
+                const weatherRes = await fetch(weatherUrl);
+
+                if (!weatherRes.ok) {
+                    if (weatherRes.status === 404) {
+                        throw new Error(`City "${city}" not found. Please check spelling.`);
+                    }
+                    throw new Error("Unable to fetch weather data");
+                }
+
+                const weatherData = await weatherRes.json();
+
+                currentWeatherData = weatherData;
+                currentCity = weatherData.name;
+                currentTimezone = weatherData.timezone;
+
+                cityNameEl.innerText = weatherData.name;
+                countryInfo.innerText = weatherData.sys.country;
+                const tempVal = Math.round(weatherData.main.temp);
+                tempC.innerText = tempVal;
+                weatherDesc.innerText = weatherData.weather[0].description;
+                humidityEl.innerText = weatherData.main.humidity;
+                windSpeed.innerText = weatherData.wind.speed;
+                pressureEl.innerText = weatherData.main.pressure;
+                feelsLike.innerText = Math.round(weatherData.main.feels_like);
+                const iconCode = weatherData.weather[0].icon;
+                weatherIcon.innerHTML = `<img src="https://openweathermap.org/img/wn/${iconCode}@2x.png" class="w-12 h-12 sm:w-16 sm:h-16" alt="weather icon">`;
+
+                const weatherMain = weatherData.weather[0].main;
+                updateBackground(weatherMain);
+                renderSuggestions(weatherMain, tempVal);
+                updateStarIcon();
+                updateLocalTimeDisplay();
+
+                // Fetch 5-day forecast
+                const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${API_KEY_WEATHER}&units=metric`;
+                const forecastRes = await fetch(forecastUrl);
+
+                if (forecastRes.ok) {
+                    const forecastData = await forecastRes.json();
+                    const dailyMap = new Map();
+                    forecastData.list.forEach(item => {
+                        const date = item.dt_txt.split(' ')[0];
+                        if (!dailyMap.has(date) && item.dt_txt.includes('12:00:00')) {
+                            dailyMap.set(date, item.main.temp);
+                        }
+                    });
+
+                    const labels = Array.from(dailyMap.keys()).slice(0, 5);
+                    const temps = Array.from(dailyMap.values()).slice(0, 5);
+
+                    if (labels.length && temps.length) {
+                        if (forecastChart) forecastChart.destroy();
+                        const ctx = document.getElementById('forecastChart').getContext('2d');
+                        forecastChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels.map(d => {
+                                    const date = new Date(d);
+                                    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short' });
+                                }),
+                                datasets: [{
+                                    label: 'Temperature (°C)',
+                                    data: temps,
+                                    borderColor: '#facc15',
+                                    backgroundColor: 'rgba(250,204,21,0.2)',
+                                    tension: 0.3,
+                                    fill: true,
+                                    pointBackgroundColor: '#ffb347',
+                                    pointBorderColor: 'white',
+                                    pointRadius: 3,
+                                    pointHoverRadius: 5
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true,
+                                plugins: {
+                                    legend: {
+                                        labels: { color: 'white', font: { size: 10 } }
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        ticks: { color: 'white', font: { size: 10 } },
+                                        grid: { color: 'rgba(255,255,255,0.2)' }
+                                    },
+                                    x: {
+                                        ticks: { color: 'white', font: { size: 10 } }
+                                    }
+                                }
+                            }
+                        });
+                    } else {
+                        createFallbackChart();
+                    }
+                } else {
+                    createFallbackChart();
+                }
+
+            } catch (err) {
+                console.error("Fetch error:", err);
+                cityNameEl.innerText = "Error";
+                countryInfo.innerText = "";
+                suggestionsBox.innerHTML = `<div class="text-red-200 bg-red-500/20 rounded-xl p-3 text-xs sm:text-sm">
+          <i class="fas fa-exclamation-triangle mr-2"></i> ${err.message}
+        </div>`;
+                updateBackground("default");
+            }
+        }
+
+        function createFallbackChart() {
+            if (forecastChart) forecastChart.destroy();
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            forecastChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'],
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: [22, 23, 21, 20, 24],
+                        borderColor: '#facc15',
+                        backgroundColor: 'rgba(250,204,21,0.2)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { labels: { color: 'white', font: { size: 10 } } }
+                    },
+                    scales: {
+                        y: { ticks: { color: 'white', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.2)' } },
+                        x: { ticks: { color: 'white', font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+
+        // ---------- INITIALIZATION ----------
+        function init() {
+            renderFavChips();
+            fetchWeatherAndForecast("Karachi");
+
+            searchBtn.addEventListener('click', () => {
+                const cityVal = cityInput.value.trim();
+                if (cityVal) fetchWeatherAndForecast(cityVal);
+            });
+
+            cityInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchBtn.click();
+            });
+
+            favStarBtn.addEventListener('click', toggleFavorite);
+
+            clearFavBtn.addEventListener('click', () => {
+                favorites = [];
+                saveFavorites();
+                renderFavChips();
+                updateStarIcon();
+            });
+
+            refreshFavBtn.addEventListener('click', () => {
+                if (currentCity) fetchWeatherAndForecast(currentCity);
+            });
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
