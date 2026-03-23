@@ -11,8 +11,8 @@ An interactive web app to check real-time weather forecasts, see dynamic visuals
 
 ## 📸 Screenshots
 
-![Screenshot 1](./assets/screenshot1.png)  
-![Screenshot 2](./assets/screenshot2.png)
+![Screenshot 1](./images/screenshot1.png)  
+![Screenshot 2](./images/screenshot2.png)
 
 ---
 
